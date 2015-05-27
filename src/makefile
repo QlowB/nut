@@ -1,5 +1,9 @@
+# 
+# very basic makefile
+#
+
 
 .PHONY: all
 all:
-	gcc *.c -o main -fopenmp -lcurses -std=c99
+	gcc *.c -o nut -lcurses -std=c99
 

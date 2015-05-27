@@ -4,8 +4,12 @@
 
 typedef enum {
     NORMAL,
+    NOTHING,
     ESCAPE,
     ARROW_UP,
+    ARROW_DOWN,
+    ARROW_RIGHT,
+    ARROW_LEFT,
 } esc_type;
 
 
