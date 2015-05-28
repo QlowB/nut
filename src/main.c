@@ -13,7 +13,7 @@
 
 #include "mandelbrot.h"
 #include "escape_sequences.h"
-
+#include "big_mandel_bmp.h"
 
 int process_input(mandelbrot_info* info, mandelbrot_data* data);
 int process_input_string(const char* str, mandelbrot_info* info, mandelbrot_data* data);
@@ -58,7 +58,6 @@ int main(int argc, char** argv)
         }
     }
 
-
     destroy_data(&md);
 
 
@@ -90,7 +89,12 @@ int process_input(mandelbrot_info* info, mandelbrot_data* data)
     case 10: // Enter
     	return 2;
     	break;
-    case KEY_RESIZE:
+    case KEY_RESIZE: 
+        data->img_width = getmaxx(main_wnd) - 1;
+        data->img_height = getmaxy(main_wnd) - 1;
+        data->iterations = realloc(data->iterations,
+                data->img_width * data->img_height *
+                sizeof(*data->iterations));
     	break;
     case '+':
         x_grow = -info->width * 0.1;
@@ -116,11 +120,9 @@ int process_input(mandelbrot_info* info, mandelbrot_data* data)
     info->x -= x_grow / 2;
     info->y -= y_grow / 2;
 
-    data->img_width = getmaxx(main_wnd) - 1;
-    data->img_height = getmaxy(main_wnd) - 1;
     if (need_recalc) {
-        compute_data(data, info);
         info->height = info->width * data->img_height / data->img_width * 2.0;
+        compute_data(data, info);
         clear();
         print_data(&md);
     }
@@ -129,22 +131,33 @@ int process_input(mandelbrot_info* info, mandelbrot_data* data)
 }
 
 
+int color_grad(double val)
+{
+    if (fabs(val - 1.0) < 1.0e-10)
+        return 0;
+    double sinus = sin(20 * pow(val, 0.1));
+    double sinus2 = sin(13 * pow(val, 0.125));
+    double sinus3 = sin(17 * pow(val, 0.07));
+    return (unsigned char) ((sinus + 1) * 127.5) + 
+           ((unsigned char) ((sinus2 + 1) * 127.5) << 8) +
+           ((unsigned char) ((sinus3 + 1) * 127.5) << 16);
+}
+
+
 int process_input_string(const char* str, mandelbrot_info* info, mandelbrot_data* data)
 {
-	if (strcmp(str, "exit") == 0) {
-		endwin();
-		exit(0);
-	}
-	else if (memcmp(str, "export ", 7) == 0) {
-		int w, h, max_iter;
-		sscanf(str + 6, "%d %d %d", &w, &h, &max_iter);
-		mandelbrot_data mega_data;
-		init_data(w, h, max_iter, &mega_data);
-		compute_data(&mega_data, info);
-		write_bmp("out.bmp", &mega_data);
-		destroy_data(&mega_data);
-	}
-	return 0;
+    if (strcmp(str, "exit") == 0) {
+        endwin();
+        exit(0);
+    }
+    else if (memcmp(str, "export ", 7) == 0) {
+        int w, h, max_iter;
+        sscanf(str + 6, "%d %d %d", &w, &h, &max_iter);
+        mandelbrot_info inf = *info;
+        inf.height = inf.width * h / w;
+        stream_mandelbrot_to_bmp("out.bmp", w, h, max_iter, &inf, &compute_data, color_grad);
+    }
+    return 0;
 }
 
 
@@ -161,7 +174,16 @@ void print_data(mandelbrot_data* data)
     init_pair(++max_color, COLOR_BLACK, COLOR_GREEN);
     init_pair(++max_color, COLOR_BLACK, COLOR_YELLOW);
     init_pair(++max_color, COLOR_BLACK, COLOR_BLUE);
+    init_pair(++max_color, COLOR_BLACK, COLOR_MAGENTA);
     init_pair(++max_color, COLOR_BLACK, COLOR_CYAN);
+    init_pair(++max_color, COLOR_BLACK, COLOR_WHITE);
+    init_pair(++max_color, COLOR_BLACK, COLOR_RED);
+    init_pair(++max_color, COLOR_BLACK, COLOR_GREEN);
+    init_pair(++max_color, COLOR_BLACK, COLOR_YELLOW);
+    init_pair(++max_color, COLOR_BLACK, COLOR_BLUE);
+    init_pair(++max_color, COLOR_BLACK, COLOR_MAGENTA);
+    init_pair(++max_color, COLOR_BLACK, COLOR_CYAN);
+    init_pair(++max_color, COLOR_BLACK, COLOR_WHITE);
     init_pair(++max_color, COLOR_BLACK, COLOR_BLACK);
 
     int cp = 0;
@@ -195,13 +217,15 @@ char* read_file(const char* filename, size_t* length)
 }
 
 
-int color_func(int iterations)
+int color_func(int iterations, int max_iter)
 {
-	double sinus = sin(0.01 * pow(iterations, 2.5));
-	double sinus2 = sin(0.17 * pow(iterations, 0.3));
-	return (unsigned char) ((sinus + 1) * 127.5) + 
-		   ((unsigned char) ((sinus2 + 1) * 127.5) << 8) +
-		   ((unsigned char) ((sinus2 + 1) * 127.5) << 8);
+    double val = (double) (5 + iterations) / (5 + max_iter);
+    double sinus = sin(20 * pow(val, 0.1));
+    double sinus2 = sin(13 * pow(val, 0.125));
+    double sinus3 = sin(17 * pow(val, 0.07));
+    return (unsigned char) ((sinus + 1) * 127.5) + 
+           ((unsigned char) ((sinus2 + 1) * 127.5) << 8) +
+           ((unsigned char) ((sinus3 + 1) * 127.5) << 16);
 }
 
 
@@ -225,7 +249,7 @@ void write_bmp(const char* filename, mandelbrot_data* data)
             //int g = to_int(green[(i + j * data->img_height)]);
             //int b = to_int(blue[(i + j * data->img_height)]);
             int iter = data->iterations[i * data->img_width + j];
-            int color = color_func(iter);
+            int color = color_func(iter, data->max_iterations);
             if (iter == data->max_iterations)
             	color = 0;
             int r = color & 0xFF;
