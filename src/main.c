@@ -12,7 +12,7 @@
 #endif
 
 #include "mandelbrot.h"
-#include "escape_sequences.h"
+//#include "escape_sequences.h"
 #include "big_mandel_bmp.h"
 
 int process_input(mandelbrot_info* info, mandelbrot_data* data);
