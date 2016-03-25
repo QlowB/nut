@@ -5,12 +5,12 @@
 #include <signal.h>
 #include <ncurses.h>
 
-#ifdef __APPLE__
+/*#ifdef __APPLE__
 #include <OpenCl/OpenCl.h>
 #else
 #include <CL/cl.h>
 #endif
-
+*/
 #include "mandelbrot.h"
 //#include "escape_sequences.h"
 #include "big_mandel_bmp.h"
@@ -53,7 +53,7 @@ int main(int argc, char** argv)
         int resp = process_input(&mi, &md);
         if (resp == 2) {
         	char input[2048];
-        	getstr(input);
+        	getnstr(input, sizeof input);
         	process_input_string(input, &mi, &md);
         }
     }
@@ -69,6 +69,38 @@ int process_input(mandelbrot_info* info, mandelbrot_data* data)
 {
     int need_recalc = 1;
     int ch = getch();
+
+    static int listening = 1;
+    
+    if (listening) {
+        if (ch == 27) {
+            listening = 0;
+            int x, y;
+            getmaxyx(main_wnd, y, x);
+            move(y, 0);
+            return 0;
+        }
+    }
+    else {
+        if (ch == 27)
+            listening = 1;
+        else if (ch == 10)
+            return 2;
+        else if (ch == 127) {
+//            printf("sdfsdfsdf\n");
+            int x, y;
+            getyx(main_wnd, x, y);
+            if (x > 0)
+                move(y, x);
+            refresh();
+        }
+        else {
+//            printf("%d\n", (int) ch);
+            return 0;
+        }
+    }
+
+    delch();
 
     real_number x_grow = 0.0;
     real_number y_grow = 0.0;
@@ -86,9 +118,6 @@ int process_input(mandelbrot_info* info, mandelbrot_data* data)
     case KEY_RIGHT:
         info->x += 2 * info->width / data->img_width;
         break;
-    case 10: // Enter
-    	return 2;
-    	break;
     case KEY_RESIZE: 
         data->img_width = getmaxx(main_wnd) - 1;
         data->img_height = getmaxy(main_wnd) - 1;
@@ -146,7 +175,7 @@ int color_grad(double val)
 
 int process_input_string(const char* str, mandelbrot_info* info, mandelbrot_data* data)
 {
-    if (strcmp(str, "exit") == 0) {
+    if (strcmp(str, "exit") == 0 || strncmp(str, ":q", 2) == 0) {
         endwin();
         exit(0);
     }
